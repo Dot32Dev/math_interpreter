@@ -25,8 +25,10 @@ impl SyntaxError {
 }
 
 fn main() -> Result<(), SyntaxError> {
-    let tokens = lexer("20 + 32 - 2 + 3.14").unwrap();
+    let tokens = lexer("2 * 3 * 4 * 5").unwrap();
     println!("{:?}", tokens);
+
+    parse(&tokens);
 
     let mut answer = 0.0;
     let mut last_operand = Token::Add;
@@ -44,6 +46,7 @@ fn main() -> Result<(), SyntaxError> {
             Token::Add | Token::Subtract => {
                 last_operand = token;
             }
+            Token::EOF => break,
             _ => {
                 return Err(SyntaxError::new(format!(
                     "{:?} is currently unsupported",
@@ -85,6 +88,122 @@ fn lexer(input: &str) -> Result<Vec<Token>, SyntaxError> {
         }
     }
 
-    // tokens.push(Token::EOF);
+    tokens.push(Token::EOF);
     Ok(tokens)
+}
+
+#[derive(Debug)]
+enum Node {
+    Number(f32),
+    BinaryOp {
+        left: Box<Node>,
+        op: Operator,
+        right: Box<Node>,
+    },
+}
+
+#[derive(Debug)]
+enum Operator {
+    Add,
+    Subtract,
+    Multiply,
+    Divide,
+}
+
+impl Token {
+    fn to_operator(&self) -> Result<Operator, SyntaxError> {
+        match self {
+            Token::Add => return Ok(Operator::Add),
+            Token::Subtract => return Ok(Operator::Subtract),
+            Token::Multiply => return Ok(Operator::Multiply),
+            Token::Divide => return Ok(Operator::Divide),
+            _ => {
+                return Err(SyntaxError::new(format!(
+                    "Operator expected, got {:?}",
+                    self
+                )))
+            }
+        }
+    }
+
+    fn to_number(&self) -> Result<f32, SyntaxError> {
+        match self {
+            Token::Number(float) => return Ok(*float),
+            _ => return Err(SyntaxError::new(format!("Number expected, got {:?}", self))),
+        }
+    }
+}
+
+fn parse(input: &[Token]) -> Result<(), SyntaxError> {
+    let mut iter = input.iter().peekable();
+    while let Some(token) = iter.next() {
+        match token {
+            Token::Number(_) => {
+                let term: Vec<&Token> = once(token)
+                    .chain(from_fn(|| {
+                        iter.by_ref().next_if(|s| match s {
+                            Token::Number(_) => true,
+                            Token::Multiply => true,
+                            Token::Divide => true,
+                            _ => false,
+                        })
+                    }))
+                    .collect();
+                // let left_factor = term[0].to_number()?;
+                // let operator = term[1].to_operator()?;
+                // let right_factor = term[2].to_number()?;
+                // let node = Node::BinaryOp {
+                //     left: Box::new(Node::Number(left_factor)),
+                //     op: operator,
+                //     right: Box::new(Node::Number(right_factor)),
+                // };
+                let final_node = match term.len() {
+                    n if n % 2 == 1 && n > 1 => {
+                        // Only matches if the length is 3, 5, 7, etc (makes room for operators between factors)
+                        // let left_factor = term[0].to_number()?;
+                        // let operator = term[1].to_operator()?;
+                        // let right_factor = term[2].to_number()?;
+                        // let node = Node::BinaryOp {
+                        //     left: Box::new(Node::Number(left_factor)),
+                        //     op: operator,
+                        //     right: Box::new(Node::Number(right_factor)),
+                        // };
+
+                        // let node = Node::BinaryOp {
+                        //     left: Box::new(node),
+                        //     op: term[3].to_operator()?,
+                        //     right: Box::new(Node::Number(term[4].to_number()?)),
+                        // };
+
+                        let mut node = Node::Number(term[0].to_number()?);
+
+                        for i in (1..term.len()).step_by(2) {
+                            let operator = term[i].to_operator()?;
+                            let right_factor = term[i + 1].to_number()?;
+
+                            node = Node::BinaryOp {
+                                left: Box::new(node),
+                                op: operator,
+                                right: Box::new(Node::Number(right_factor)),
+                            };
+                        }
+
+                        node
+                    }
+                    1 => {
+                        let factor = term[0].to_number()?;
+                        Node::Number(factor)
+                    }
+                    _ => {
+                        return Err(SyntaxError::new("Malformed expression".to_string()));
+                    }
+                };
+                println!("{:#?}", final_node);
+                println!("{:?}", term);
+            }
+            _ => (),
+        }
+    }
+
+    Ok(())
 }
