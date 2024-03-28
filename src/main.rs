@@ -30,36 +30,12 @@ impl SyntaxError {
 }
 
 fn main() -> Result<(), SyntaxError> {
-    let tokens = lexer("2 * 3 + 4 * 5")?;
+    let tokens = lexer("5 * 100")?;
     println!("{:?}", tokens);
 
-    parse(&tokens)?;
+    let node = parse(&tokens)?;
 
-    let mut answer = 0.0;
-    let mut last_operand = Token::Add;
-    for token in tokens {
-        match token {
-            Token::Number(int) => match last_operand {
-                Token::Add => {
-                    answer += int;
-                }
-                Token::Subtract => {
-                    answer -= int;
-                }
-                _ => (),
-            },
-            Token::Add | Token::Subtract => {
-                last_operand = token;
-            }
-            Token::EOF => break,
-            _ => {
-                return Err(SyntaxError::new(format!(
-                    "{:?} is currently unsupported",
-                    token
-                )))
-            }
-        }
-    }
+    let answer = run(node)?;
 
     println!("Answer: {}", answer);
     Ok(())
@@ -89,7 +65,7 @@ fn lexer(input: &str) -> Result<Vec<Token>, SyntaxError> {
             '/' => tokens.push(Token::Divide),
             '(' => tokens.push(Token::LeftParen),
             ')' => tokens.push(Token::RightParen),
-            _ => return Err(SyntaxError::new(format!("unrecognized character {}", ch))),
+            _ => return Err(SyntaxError::new(format!("unrecognised character {}", ch))),
         }
     }
 
@@ -229,5 +205,25 @@ fn parse_term<'a>(
             }
         }
         None => return Err(SyntaxError::new("There is nothing to parse".to_string())),
+    }
+}
+
+fn run(node: Node) -> Result<f32, SyntaxError> {
+    match node {
+        Node::Number(float) => return Ok(float),
+        Node::BinaryOp { left, op, right } => match op {
+            Operator::Add => {
+                return Ok(run(*left)? + run(*right)?);
+            }
+            Operator::Subtract => {
+                return Ok(run(*left)? - run(*right)?);
+            }
+            Operator::Multiply => {
+                return Ok(run(*left)? * run(*right)?);
+            }
+            Operator::Divide => {
+                return Ok(run(*left)? / run(*right)?);
+            }
+        },
     }
 }
