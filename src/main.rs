@@ -122,6 +122,7 @@ fn lexer(input: &str) -> Result<Vec<Token>, SyntaxError> {
     Ok(tokens)
 }
 
+// A recursive decent parser
 fn parse(input: &[Token]) -> Result<Node, SyntaxError> {
     let mut iter = input.iter().peekable();
     // This is a seperate function because other functions like "parse_factor"
@@ -131,6 +132,7 @@ fn parse(input: &[Token]) -> Result<Node, SyntaxError> {
 }
 
 // Yes, this function signature is INSANE
+// This will parse `term +/- term`
 fn parse_expression<'a>(
     mut iter: &mut std::iter::Peekable<impl Iterator<Item = &'a Token>>,
 ) -> Result<Node, SyntaxError> {
@@ -166,6 +168,9 @@ fn parse_expression<'a>(
     Ok(node)
 }
 
+// This should parse `number multiply/divide/modulo number`
+// Technically "number" here could be the result of an expression in brackets ()
+// or the result of an exponent (2^5 for example)
 fn parse_term<'a>(
     mut iter: &mut std::iter::Peekable<impl Iterator<Item = &'a Token>>,
 ) -> Result<Node, SyntaxError> {
@@ -192,6 +197,10 @@ fn parse_term<'a>(
     Ok(node)
 }
 
+// Exponents have higher precedence than multiply/divide/modulo, so it needs its
+// own function. This was just a copypaste of the term function, where I renamed
+// parse_expression in the term function to parse_exponent, and changed
+// Token::Multiply | Token::Divide | Token::Modulo to just Token::Exponent
 fn parse_exponent<'a>(
     mut iter: &mut std::iter::Peekable<impl Iterator<Item = &'a Token>>,
 ) -> Result<Node, SyntaxError> {
@@ -218,16 +227,19 @@ fn parse_exponent<'a>(
     Ok(node)
 }
 
+// Will teturn either a number or an expression within any brackets it lands on
 fn parse_factor<'a>(
     mut iter: &mut std::iter::Peekable<impl Iterator<Item = &'a Token>>,
 ) -> Result<Node, SyntaxError> {
+    // This function is the only function allowed to consume everything it finds
     match iter.next() {
         // If it's a number, return the number
         Some(Token::Number(value)) => Ok(Node::Number(*value)),
         Some(Token::LeftParen) => {
             // If we got an opening bracket, parse the expression inside
             let node = parse_expression(&mut iter)?;
-            // Now after parsing the inner expression, we should get a closing bracket
+            // Now after parsing the inner expression, we should get a closing
+            // bracket
             match iter.next() {
                 // This will consume the closing bracket and return node
                 Some(Token::RightParen) => Ok(node),
@@ -250,6 +262,7 @@ fn parse_factor<'a>(
     }
 }
 
+// Recursively execurtes the abstract syntax tree! Such beauty.
 fn run(node: Node) -> Result<f32, SyntaxError> {
     match node {
         Node::Number(float) => return Ok(float),
