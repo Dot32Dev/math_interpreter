@@ -123,7 +123,13 @@ impl Token {
 
 fn parse(input: &[Token]) -> Result<Node, SyntaxError> {
     let mut iter = input.iter().peekable();
+    parse_expression(&mut iter)
+}
 
+// Yes, this function signature is INSANE
+fn parse_expression<'a>(
+    mut iter: &mut std::iter::Peekable<impl Iterator<Item = &'a Token>>,
+) -> Result<Node, SyntaxError> {
     let mut node = parse_term(&mut iter)?;
 
     while let Some(&token) = iter.peek() {
@@ -150,9 +156,8 @@ fn parse(input: &[Token]) -> Result<Node, SyntaxError> {
     Ok(node)
 }
 
-// WHAT IS THIS FUNCTION SIGNATURE, had to ask ChatGPT for this shit
 fn parse_term<'a>(
-    iter: &mut std::iter::Peekable<impl Iterator<Item = &'a Token>>,
+    mut iter: &mut std::iter::Peekable<impl Iterator<Item = &'a Token>>,
 ) -> Result<Node, SyntaxError> {
     match iter.next() {
         Some(token) => {
@@ -209,6 +214,50 @@ fn parse_term<'a>(
             }
         }
         None => return Err(SyntaxError::new("There is nothing to parse".to_string())),
+    }
+}
+
+fn parse_factor<'a>(
+    mut iter: &mut std::iter::Peekable<impl Iterator<Item = &'a Token>>,
+) -> Result<Node, SyntaxError> {
+    // match tokens_iter.next()? {
+    //     Token::Number(value) => Some(Expr::Number(*value)),
+    //     Token::LeftParen => {
+    //         let expr = parse_expression(tokens_iter)?;
+    //         if let Some(&Token::RightParen) = tokens_iter.next() {
+    //             Some(expr)
+    //         } else {
+    //             None
+    //         }
+    //     }
+    //     _ => None,
+    // }
+    match iter.next() {
+        // If it's a number, return the number
+        Some(Token::Number(value)) => Ok(Node::Number(*value)),
+        Some(Token::LeftParen) => {
+            // If we got an opening bracket, parse the expression inside
+            let node = parse_expression(&mut iter)?;
+            // Now after parsing the inner expression, we should get a closing bracket
+            match iter.next() {
+                // This will consume the closing bracket and return node
+                Some(Token::RightParen) => Ok(node),
+                Some(token) => Err(SyntaxError::new(format!(
+                    "Expected closing bracket, got {:?}",
+                    token
+                ))),
+                _ => Err(SyntaxError::new(
+                    "Expected closing bracket, got nothing".to_string(),
+                )),
+            }
+        }
+        Some(token) => Err(SyntaxError::new(format!(
+            "Expected number or opening bracket, got {:?}",
+            token
+        ))),
+        None => Err(SyntaxError::new(
+            "Expected number or opening bracket, got nothing".to_string(),
+        )),
     }
 }
 
