@@ -4,6 +4,8 @@ use std::iter::once;
 use std::iter::Peekable;
 use std::slice::Iter;
 
+use std::io;
+
 #[derive(Debug)]
 enum Token {
     Number(f32),
@@ -30,8 +32,12 @@ impl SyntaxError {
 }
 
 fn main() -> Result<(), SyntaxError> {
-    let tokens = lexer("5 * 100")?;
-    println!("{:?}", tokens);
+    println!("Enter something to calculate:");
+
+    let mut input_string = String::new();
+    io::stdin().read_line(&mut input_string).unwrap();
+
+    let tokens = lexer(input_string.trim())?;
 
     let node = parse(&tokens)?;
 
@@ -48,7 +54,7 @@ fn lexer(input: &str) -> Result<Vec<Token>, SyntaxError> {
     while let Some(ch) = iter.next() {
         match ch {
             ch if ch.is_whitespace() => continue,
-            '1'..='9' | '.' => {
+            '0'..='9' | '.' => {
                 let n: f32 = once(ch)
                     .chain(from_fn(|| {
                         iter.by_ref().next_if(|s| s.is_ascii_digit() | (s == &'.'))
@@ -140,8 +146,6 @@ fn parse(input: &[Token]) -> Result<Node, SyntaxError> {
             }
         }
     }
-
-    println!("{:#?}", node);
 
     Ok(node)
 }
