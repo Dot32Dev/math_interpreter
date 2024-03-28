@@ -123,6 +123,9 @@ impl Token {
 
 fn parse(input: &[Token]) -> Result<Node, SyntaxError> {
     let mut iter = input.iter().peekable();
+    // This is a seperate function because other functions like "parse_factor"
+    // can call parse_expression to recursively evaluate expressions inside
+    // parenthesis
     parse_expression(&mut iter)
 }
 
@@ -130,14 +133,22 @@ fn parse(input: &[Token]) -> Result<Node, SyntaxError> {
 fn parse_expression<'a>(
     mut iter: &mut std::iter::Peekable<impl Iterator<Item = &'a Token>>,
 ) -> Result<Node, SyntaxError> {
+    // This will parse and consume all tokens up until a + or -
+    // This follows the order of operations, where multiply and division get
+    // computed before addition and subtraction
     let mut node = parse_term(&mut iter)?;
 
+    // We can't consume the iterator with iter.next(), as then lower functions
+    // won't have access to those tokens
     while let Some(&token) = iter.peek() {
         match token {
             Token::Add | Token::Subtract => {
+                // Consume the +/- token, then parse the next term starting from
+                // the token after the =/-
                 iter.next();
                 let right_term = parse_term(&mut iter)?;
-                // node = Node::BinaryOp(Box::new(node), token.into(), Box::new(right_expr));
+                // Set the current expressions node to the previously calculated
+                // node, +/- the next term
                 node = Node::BinaryOp {
                     left: Box::new(node),
                     op: token.to_operator()?,
@@ -146,9 +157,12 @@ fn parse_expression<'a>(
             }
             Token::EOF => break,
             _ => {
-                return Err(SyntaxError::new(
-                    "Bro I don't know what you did to cause this".to_string(),
-                ))
+                // This would be a really strange error, and would indicate that
+                // parse_term didn't find the entire term
+                return Err(SyntaxError::new(format!(
+                    "Expected + or -, got {:?}",
+                    token
+                )));
             }
         }
     }
@@ -220,18 +234,6 @@ fn parse_term<'a>(
 fn parse_factor<'a>(
     mut iter: &mut std::iter::Peekable<impl Iterator<Item = &'a Token>>,
 ) -> Result<Node, SyntaxError> {
-    // match tokens_iter.next()? {
-    //     Token::Number(value) => Some(Expr::Number(*value)),
-    //     Token::LeftParen => {
-    //         let expr = parse_expression(tokens_iter)?;
-    //         if let Some(&Token::RightParen) = tokens_iter.next() {
-    //             Some(expr)
-    //         } else {
-    //             None
-    //         }
-    //     }
-    //     _ => None,
-    // }
     match iter.next() {
         // If it's a number, return the number
         Some(Token::Number(value)) => Ok(Node::Number(*value)),
