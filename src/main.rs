@@ -1,6 +1,9 @@
 use std::iter::from_fn;
 use std::iter::once;
 
+use std::iter::Peekable;
+use std::slice::Iter;
+
 #[derive(Debug)]
 enum Token {
     Number(f32),
@@ -27,7 +30,7 @@ impl SyntaxError {
 }
 
 fn main() -> Result<(), SyntaxError> {
-    let tokens = lexer("2 * 3 * 4 * 5")?;
+    let tokens = lexer("2 * 3 + 4 * 5")?;
     println!("{:?}", tokens);
 
     parse(&tokens)?;
@@ -136,58 +139,95 @@ impl Token {
     }
 }
 
-fn parse(input: &[Token]) -> Result<(), SyntaxError> {
+fn parse(input: &[Token]) -> Result<Node, SyntaxError> {
     let mut iter = input.iter().peekable();
-    while let Some(token) = iter.next() {
+
+    let mut node = parse_term(&mut iter)?;
+
+    while let Some(&token) = iter.peek() {
         match token {
-            Token::Number(_) => {
-                let term: Vec<&Token> = once(token)
-                    .chain(from_fn(|| {
-                        iter.by_ref().next_if(|s| match s {
-                            Token::Number(_) => true,
-                            Token::Multiply => true,
-                            Token::Divide => true,
-                            _ => false,
-                        })
-                    }))
-                    .collect();
-
-                let term_node = match term.len() {
-                    n if n % 2 == 1 && n > 1 => {
-                        // Only matches if the length is 3, 5, 7, etc (makes room for operators between factors)
-
-                        let left_factor = term[0].to_number()?;
-                        let mut node = Node::Number(left_factor);
-
-                        // Iterates two places at a time
-                        // for [item_one, item_two] in my_vector.iter().skip(1).chunks(2) {
-                        for i in (1..term.len()).step_by(2) {
-                            let operator = term[i].to_operator()?;
-                            let right_factor = term[i + 1].to_number()?;
-
-                            node = Node::BinaryOp {
-                                left: Box::new(node),
-                                op: operator,
-                                right: Box::new(Node::Number(right_factor)),
-                            };
-                        }
-
-                        node
-                    }
-                    1 => {
-                        let factor = term[0].to_number()?;
-                        Node::Number(factor)
-                    }
-                    _ => {
-                        return Err(SyntaxError::new("Malformed expression".to_string()));
-                    }
+            Token::Add | Token::Subtract => {
+                iter.next();
+                let right_term = parse_term(&mut iter)?;
+                // node = Node::BinaryOp(Box::new(node), token.into(), Box::new(right_expr));
+                node = Node::BinaryOp {
+                    left: Box::new(node),
+                    op: token.to_operator()?,
+                    right: Box::new(right_term),
                 };
-                println!("{:#?}", term_node);
-                println!("{:?}", term);
             }
-            _ => (),
+            Token::EOF => break,
+            _ => {
+                return Err(SyntaxError::new(
+                    "Bro I don't know what you did to cause this".to_string(),
+                ))
+            }
         }
     }
 
-    Ok(())
+    println!("{:#?}", node);
+
+    Ok(node)
+}
+
+// WHAT IS THIS FUNCTION SIGNATURE, had to ask ChatGPT for this shit
+fn parse_term<'a>(
+    iter: &mut std::iter::Peekable<impl Iterator<Item = &'a Token>>,
+) -> Result<Node, SyntaxError> {
+    match iter.next() {
+        Some(token) => {
+            match token {
+                Token::Number(_) => {
+                    let term: Vec<&Token> = once(token)
+                        .chain(from_fn(|| {
+                            iter.by_ref().next_if(|s| match s {
+                                Token::Number(_) => true,
+                                Token::Multiply => true,
+                                Token::Divide => true,
+                                _ => false,
+                            })
+                        }))
+                        .collect();
+
+                    let term_node = match term.len() {
+                        n if n % 2 == 1 && n > 1 => {
+                            // Only matches if the length is 3, 5, 7, etc (makes room for operators between factors)
+
+                            let left_factor = term[0].to_number()?;
+                            let mut node = Node::Number(left_factor);
+
+                            // Iterates two places at a time
+                            // for [item_one, item_two] in my_vector.iter().skip(1).chunks(2) {
+                            for i in (1..term.len()).step_by(2) {
+                                let operator = term[i].to_operator()?;
+                                let right_factor = term[i + 1].to_number()?;
+
+                                node = Node::BinaryOp {
+                                    left: Box::new(node),
+                                    op: operator,
+                                    right: Box::new(Node::Number(right_factor)),
+                                };
+                            }
+
+                            node
+                        }
+                        1 => {
+                            let factor = term[0].to_number()?;
+                            Node::Number(factor)
+                        }
+                        _ => {
+                            return Err(SyntaxError::new("Malformed expression".to_string()));
+                        }
+                    };
+                    Ok(term_node)
+                }
+                _ => {
+                    return Err(SyntaxError::new(
+                        "Why does the term begin with something other than a number".to_string(),
+                    ))
+                }
+            }
+        }
+        None => return Err(SyntaxError::new("There is nothing to parse".to_string())),
+    }
 }
