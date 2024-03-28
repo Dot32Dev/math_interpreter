@@ -157,12 +157,7 @@ fn parse_expression<'a>(
             }
             Token::EOF => break,
             _ => {
-                // This would be a really strange error, and would indicate that
-                // parse_term didn't find the entire term
-                return Err(SyntaxError::new(format!(
-                    "Expected + or -, got {:?}",
-                    token
-                )));
+                break;
             }
         }
     }
@@ -173,62 +168,27 @@ fn parse_expression<'a>(
 fn parse_term<'a>(
     mut iter: &mut std::iter::Peekable<impl Iterator<Item = &'a Token>>,
 ) -> Result<Node, SyntaxError> {
-    match iter.next() {
-        Some(token) => {
-            match token {
-                Token::Number(_) => {
-                    let term: Vec<&Token> = once(token)
-                        .chain(from_fn(|| {
-                            iter.by_ref().next_if(|s| match s {
-                                Token::Number(_) => true,
-                                Token::Multiply => true,
-                                Token::Divide => true,
-                                _ => false,
-                            })
-                        }))
-                        .collect();
+    let mut node = parse_factor(&mut iter)?;
 
-                    let term_node = match term.len() {
-                        n if n % 2 == 1 && n > 1 => {
-                            // Only matches if the length is 3, 5, 7, etc (makes room for operators between factors)
-
-                            let left_factor = term[0].to_number()?;
-                            let mut node = Node::Number(left_factor);
-
-                            // Iterates two places at a time
-                            // for [item_one, item_two] in my_vector.iter().skip(1).chunks(2) {
-                            for i in (1..term.len()).step_by(2) {
-                                let operator = term[i].to_operator()?;
-                                let right_factor = term[i + 1].to_number()?;
-
-                                node = Node::BinaryOp {
-                                    left: Box::new(node),
-                                    op: operator,
-                                    right: Box::new(Node::Number(right_factor)),
-                                };
-                            }
-
-                            node
-                        }
-                        1 => {
-                            let factor = term[0].to_number()?;
-                            Node::Number(factor)
-                        }
-                        _ => {
-                            return Err(SyntaxError::new("Malformed expression".to_string()));
-                        }
-                    };
-                    Ok(term_node)
-                }
-                _ => {
-                    return Err(SyntaxError::new(
-                        "Why does the term begin with something other than a number".to_string(),
-                    ))
-                }
+    while let Some(&token) = iter.peek() {
+        match token {
+            Token::Multiply | Token::Divide => {
+                iter.next();
+                let right_factor = parse_factor(&mut iter)?;
+                node = Node::BinaryOp {
+                    left: Box::new(node),
+                    op: token.to_operator()?,
+                    right: Box::new(right_factor),
+                };
+            }
+            Token::EOF => break,
+            _ => {
+                break;
             }
         }
-        None => return Err(SyntaxError::new("There is nothing to parse".to_string())),
     }
+
+    Ok(node)
 }
 
 fn parse_factor<'a>(
