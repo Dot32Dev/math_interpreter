@@ -1,10 +1,6 @@
+use std::io;
 use std::iter::from_fn;
 use std::iter::once;
-
-use std::iter::Peekable;
-use std::slice::Iter;
-
-use std::io;
 
 #[derive(Debug)]
 enum Node {
@@ -61,7 +57,8 @@ impl Token {
 
 #[derive(Debug)]
 struct SyntaxError {
-    // My code doesn't access this field, only Rust does when the main function returns an error.
+    // My code doesn't access this field, only Rust does when the main function
+    // returns an error.
     #[allow(unused)]
     message: String,
 }
