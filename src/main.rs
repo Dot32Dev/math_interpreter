@@ -7,15 +7,56 @@ use std::slice::Iter;
 use std::io;
 
 #[derive(Debug)]
+enum Node {
+    Number(f32),
+    BinaryOp {
+        left: Box<Node>,
+        op: Operator,
+        right: Box<Node>,
+    },
+}
+
+#[derive(Debug)]
+enum Operator {
+    Add,
+    Subtract,
+    Multiply,
+    Divide,
+    Modulo,
+    Exponent,
+}
+
+#[derive(Debug)]
 enum Token {
     Number(f32),
     Add,
     Subtract,
     Multiply,
     Divide,
+    Modulo,
+    Exponent,
     LeftParen,
     RightParen,
     EOF,
+}
+
+impl Token {
+    fn to_operator(&self) -> Result<Operator, SyntaxError> {
+        match self {
+            Token::Add => return Ok(Operator::Add),
+            Token::Subtract => return Ok(Operator::Subtract),
+            Token::Multiply => return Ok(Operator::Multiply),
+            Token::Divide => return Ok(Operator::Divide),
+            Token::Modulo => return Ok(Operator::Modulo),
+            Token::Exponent => return Ok(Operator::Exponent),
+            _ => {
+                return Err(SyntaxError::new(format!(
+                    "Operator expected, got {:?}",
+                    self
+                )))
+            }
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -69,6 +110,8 @@ fn lexer(input: &str) -> Result<Vec<Token>, SyntaxError> {
             '-' => tokens.push(Token::Subtract),
             '*' => tokens.push(Token::Multiply),
             '/' => tokens.push(Token::Divide),
+            '%' => tokens.push(Token::Modulo),
+            '^' => tokens.push(Token::Exponent),
             '(' => tokens.push(Token::LeftParen),
             ')' => tokens.push(Token::RightParen),
             _ => return Err(SyntaxError::new(format!("unrecognised character {}", ch))),
@@ -77,48 +120,6 @@ fn lexer(input: &str) -> Result<Vec<Token>, SyntaxError> {
 
     tokens.push(Token::EOF);
     Ok(tokens)
-}
-
-#[derive(Debug)]
-enum Node {
-    Number(f32),
-    BinaryOp {
-        left: Box<Node>,
-        op: Operator,
-        right: Box<Node>,
-    },
-}
-
-#[derive(Debug)]
-enum Operator {
-    Add,
-    Subtract,
-    Multiply,
-    Divide,
-}
-
-impl Token {
-    fn to_operator(&self) -> Result<Operator, SyntaxError> {
-        match self {
-            Token::Add => return Ok(Operator::Add),
-            Token::Subtract => return Ok(Operator::Subtract),
-            Token::Multiply => return Ok(Operator::Multiply),
-            Token::Divide => return Ok(Operator::Divide),
-            _ => {
-                return Err(SyntaxError::new(format!(
-                    "Operator expected, got {:?}",
-                    self
-                )))
-            }
-        }
-    }
-
-    fn to_number(&self) -> Result<f32, SyntaxError> {
-        match self {
-            Token::Number(float) => return Ok(*float),
-            _ => return Err(SyntaxError::new(format!("Number expected, got {:?}", self))),
-        }
-    }
 }
 
 fn parse(input: &[Token]) -> Result<Node, SyntaxError> {
@@ -168,11 +169,37 @@ fn parse_expression<'a>(
 fn parse_term<'a>(
     mut iter: &mut std::iter::Peekable<impl Iterator<Item = &'a Token>>,
 ) -> Result<Node, SyntaxError> {
+    let mut node = parse_exponent(&mut iter)?;
+
+    while let Some(&token) = iter.peek() {
+        match token {
+            Token::Multiply | Token::Divide | Token::Modulo => {
+                iter.next();
+                let right_factor = parse_exponent(&mut iter)?;
+                node = Node::BinaryOp {
+                    left: Box::new(node),
+                    op: token.to_operator()?,
+                    right: Box::new(right_factor),
+                };
+            }
+            Token::EOF => break,
+            _ => {
+                break;
+            }
+        }
+    }
+
+    Ok(node)
+}
+
+fn parse_exponent<'a>(
+    mut iter: &mut std::iter::Peekable<impl Iterator<Item = &'a Token>>,
+) -> Result<Node, SyntaxError> {
     let mut node = parse_factor(&mut iter)?;
 
     while let Some(&token) = iter.peek() {
         match token {
-            Token::Multiply | Token::Divide => {
+            Token::Exponent => {
                 iter.next();
                 let right_factor = parse_factor(&mut iter)?;
                 node = Node::BinaryOp {
@@ -238,6 +265,12 @@ fn run(node: Node) -> Result<f32, SyntaxError> {
             }
             Operator::Divide => {
                 return Ok(run(*left)? / run(*right)?);
+            }
+            Operator::Modulo => {
+                return Ok(run(*left)? % run(*right)?);
+            }
+            Operator::Exponent => {
+                return Ok(run(*left)?.powf(run(*right)?));
             }
         },
     }
