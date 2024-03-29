@@ -195,6 +195,12 @@ fn parse_term<'a>(
                 };
             }
             Token::EOF => break,
+            Token::LeftParen => {
+                return Err(SyntaxError::new(format!(
+                    "Expected an operator, got {:?}",
+                    Token::LeftParen
+                )))
+            }
             _ => {
                 break;
             }
@@ -223,6 +229,12 @@ fn parse_exponent<'a>(
                     op: token.to_operator()?,
                     right: Box::new(right_factor),
                 };
+            }
+            Token::Number(value) => {
+                return Err(SyntaxError::new(format!(
+                    "Expected an operator, got {:?}",
+                    Token::Number(*value)
+                )))
             }
             Token::EOF => break,
             _ => {
