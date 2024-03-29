@@ -40,18 +40,16 @@ enum Token {
 impl Token {
     fn to_operator(&self) -> Result<Operator, SyntaxError> {
         match self {
-            Token::Add => return Ok(Operator::Add),
-            Token::Subtract => return Ok(Operator::Subtract),
-            Token::Multiply => return Ok(Operator::Multiply),
-            Token::Divide => return Ok(Operator::Divide),
-            Token::Modulo => return Ok(Operator::Modulo),
-            Token::Exponent => return Ok(Operator::Exponent),
-            _ => {
-                return Err(SyntaxError::new(format!(
-                    "Operator expected, got {:?}",
-                    self
-                )))
-            }
+            Token::Add => Ok(Operator::Add),
+            Token::Subtract => Ok(Operator::Subtract),
+            Token::Multiply => Ok(Operator::Multiply),
+            Token::Divide => Ok(Operator::Divide),
+            Token::Modulo => Ok(Operator::Modulo),
+            Token::Exponent => Ok(Operator::Exponent),
+            _ => Err(SyntaxError::new(format!(
+                "Operator expected, got {:?}",
+                self
+            ))),
         }
     }
 }
@@ -288,26 +286,14 @@ fn evaluate_variable(var_name: &String) -> Result<f32, SyntaxError> {
 // Recursively execurtes the abstract syntax tree! Such beauty.
 fn run(node: Node) -> Result<f32, SyntaxError> {
     match node {
-        Node::Number(float) => return Ok(float),
+        Node::Number(float) => Ok(float),
         Node::BinaryOp { left, op, right } => match op {
-            Operator::Add => {
-                return Ok(run(*left)? + run(*right)?);
-            }
-            Operator::Subtract => {
-                return Ok(run(*left)? - run(*right)?);
-            }
-            Operator::Multiply => {
-                return Ok(run(*left)? * run(*right)?);
-            }
-            Operator::Divide => {
-                return Ok(run(*left)? / run(*right)?);
-            }
-            Operator::Modulo => {
-                return Ok(run(*left)? % run(*right)?);
-            }
-            Operator::Exponent => {
-                return Ok(run(*left)?.powf(run(*right)?));
-            }
+            Operator::Add => Ok(run(*left)? + run(*right)?),
+            Operator::Subtract => Ok(run(*left)? - run(*right)?),
+            Operator::Multiply => Ok(run(*left)? * run(*right)?),
+            Operator::Divide => Ok(run(*left)? / run(*right)?),
+            Operator::Modulo => Ok(run(*left)? % run(*right)?),
+            Operator::Exponent => Ok(run(*left)?.powf(run(*right)?)),
         },
     }
 }
