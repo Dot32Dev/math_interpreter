@@ -25,6 +25,7 @@ enum Operator {
 #[derive(Debug)]
 enum Token {
     Number(f32),
+    Variable(String),
     Add,
     Subtract,
     Multiply,
@@ -93,15 +94,24 @@ fn lexer(input: &str) -> Result<Vec<Token>, SyntaxError> {
         match ch {
             ch if ch.is_whitespace() => continue,
             '0'..='9' | '.' => {
-                let n: f32 = once(ch)
+                let n = once(ch)
                     .chain(from_fn(|| {
                         iter.by_ref().next_if(|s| s.is_ascii_digit() | (s == &'.'))
                     }))
                     .collect::<String>()
-                    .parse()
+                    .parse::<f32>()
                     .unwrap();
 
                 tokens.push(Token::Number(n));
+            }
+            'a'..='z' | 'A'..='Z' => {
+                let string_of_letters = once(ch)
+                    .chain(from_fn(|| {
+                        iter.by_ref().next_if(|c| c.is_ascii_alphabetic())
+                    }))
+                    .collect::<String>();
+
+                tokens.push(Token::Variable(string_of_letters));
             }
             '+' => tokens.push(Token::Add),
             '-' => tokens.push(Token::Subtract),
@@ -111,7 +121,7 @@ fn lexer(input: &str) -> Result<Vec<Token>, SyntaxError> {
             '^' => tokens.push(Token::Exponent),
             '(' => tokens.push(Token::LeftParen),
             ')' => tokens.push(Token::RightParen),
-            _ => return Err(SyntaxError::new(format!("unrecognised character {}", ch))),
+            _ => return Err(SyntaxError::new(format!("Unrecognised character {}", ch))),
         }
     }
 
@@ -249,6 +259,7 @@ fn parse_factor<'a>(
                 )),
             }
         }
+        Some(Token::Variable(var_name)) => Ok(Node::Number(evaluate_variable(var_name)?)),
         Some(token) => Err(SyntaxError::new(format!(
             "Expected number or opening bracket, got {:?}",
             token
@@ -256,6 +267,16 @@ fn parse_factor<'a>(
         None => Err(SyntaxError::new(
             "Expected number or opening bracket, got nothing".to_string(),
         )),
+    }
+}
+
+fn evaluate_variable(var_name: &String) -> Result<f32, SyntaxError> {
+    match &var_name[..] {
+        "pi" => Ok(std::f32::consts::PI),
+        string => Err(SyntaxError::new(format!(
+            "Unidentified variable {:?}",
+            string
+        ))),
     }
 }
 
