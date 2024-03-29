@@ -165,9 +165,15 @@ fn parse_expression<'a>(
                     right: Box::new(right_term),
                 };
             }
-            Token::EOF => break,
-            _ => {
-                break;
+            // Because the expression is the final node that returns, we need to
+            // be careful about what exactly it is returning. Only let it break
+            // when it is logical to break.
+            Token::EOF | Token::RightParen => break,
+            token => {
+                return Err(SyntaxError::new(format!(
+                    "Expected operator or end of file, got {:?}",
+                    token
+                )))
             }
         }
     }
@@ -194,13 +200,7 @@ fn parse_term<'a>(
                     right: Box::new(right_factor),
                 };
             }
-            Token::EOF => break,
-            Token::LeftParen => {
-                return Err(SyntaxError::new(format!(
-                    "Expected an operator, got {:?}",
-                    Token::LeftParen
-                )))
-            }
+            // If something is wrong, a higher function will probably understand
             _ => {
                 break;
             }
@@ -230,13 +230,6 @@ fn parse_exponent<'a>(
                     right: Box::new(right_factor),
                 };
             }
-            Token::Number(value) => {
-                return Err(SyntaxError::new(format!(
-                    "Expected an operator, got {:?}",
-                    Token::Number(*value)
-                )))
-            }
-            Token::EOF => break,
             _ => {
                 break;
             }
@@ -246,7 +239,7 @@ fn parse_exponent<'a>(
     Ok(node)
 }
 
-// Will teturn either a number or an expression within any brackets it lands on
+// Will return either a number or an expression within any brackets it lands on
 fn parse_factor<'a>(
     mut iter: &mut std::iter::Peekable<impl Iterator<Item = &'a Token>>,
 ) -> Result<Node, SyntaxError> {
