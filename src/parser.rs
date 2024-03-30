@@ -43,7 +43,7 @@ where
     I: Iterator<Item = &'a Token>,
 {
     token_iter: std::iter::Peekable<I>,
-    // depth: u32,
+    depth: u32,
 }
 
 impl<'a> Parser<'a, std::slice::Iter<'a, Token>> {
@@ -52,7 +52,7 @@ impl<'a> Parser<'a, std::slice::Iter<'a, Token>> {
         return Parser {
             token_iter: iter,
             // node: ,
-            // depth: 0,
+            depth: 0,
         };
     }
 
@@ -83,7 +83,30 @@ impl<'a> Parser<'a, std::slice::Iter<'a, Token>> {
                 // Because the expression is the final node that returns, we
                 // need to be careful about what exactly it is returning. Only
                 // let it break when it is logical to break.
-                Token::EOF | Token::RightParen => break,
+                // Token::EOF | Token::RightParen => break,
+                Token::RightParen => match self.depth {
+                    0 => {
+                        return Err(SyntaxError::new(format!(
+                            "Expected operator or end of file, got {:?}",
+                            token
+                        )))
+                    }
+                    _ => {
+                        self.depth -= 1;
+                        break;
+                    }
+                },
+                Token::EOF => match self.depth {
+                    0 => {
+                        break;
+                    }
+                    _ => {
+                        return Err(SyntaxError::new(
+                            "Expected closing bracket, got end of file"
+                                .to_string(),
+                        ))
+                    }
+                },
                 token => {
                     return Err(SyntaxError::new(format!(
                         "Expected operator or end of file, got {:?}",
@@ -159,6 +182,7 @@ impl<'a> Parser<'a, std::slice::Iter<'a, Token>> {
             Some(Token::Number(value)) => Ok(Node::Number(*value)),
             Some(Token::LeftParen) => {
                 // If we got an opening bracket, parse the expression inside
+                self.depth += 1;
                 let node = self.parse_expression()?;
                 // Now after parsing the inner expression, we should get a
                 // closing bracket
