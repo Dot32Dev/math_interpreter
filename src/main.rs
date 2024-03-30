@@ -56,9 +56,6 @@ impl Token {
 
 #[derive(Debug)]
 struct SyntaxError {
-    // My code doesn't access this field, only Rust does when the main function
-    // returns an error.
-    #[allow(unused)]
     message: String,
 }
 
@@ -68,20 +65,30 @@ impl SyntaxError {
     }
 }
 
-fn main() -> Result<(), SyntaxError> {
+fn main() {
     println!("Enter something to calculate:");
 
     let mut input_string = String::new();
     io::stdin().read_line(&mut input_string).unwrap();
 
-    let tokens = lexer(input_string.trim())?;
+    match sandbox(input_string.trim()) {
+        Ok(answer) => {
+            println!("Answer: {}", answer);
+        }
+        Err(syntax_error) => {
+            println!("Error: {}", syntax_error.message);
+        }
+    }
+}
+
+fn sandbox(input: &str) -> Result<f32, SyntaxError> {
+    let tokens = lexer(input)?;
 
     let node = parse(&tokens)?;
 
     let answer = run(node)?;
 
-    println!("Answer: {}", answer);
-    Ok(())
+    Ok(answer)
 }
 
 fn lexer(input: &str) -> Result<Vec<Token>, SyntaxError> {
@@ -91,6 +98,7 @@ fn lexer(input: &str) -> Result<Vec<Token>, SyntaxError> {
     while let Some(ch) = iter.next() {
         match ch {
             ch if ch.is_whitespace() => continue,
+            // Matching numbers
             '0'..='9' | '.' => {
                 let n = once(ch)
                     .chain(from_fn(|| {
@@ -102,6 +110,7 @@ fn lexer(input: &str) -> Result<Vec<Token>, SyntaxError> {
 
                 tokens.push(Token::Number(n));
             }
+            // Matching variables
             'a'..='z' | 'A'..='Z' => {
                 let string_of_letters = once(ch)
                     .chain(from_fn(|| {
@@ -287,12 +296,13 @@ fn evaluate_variable(var_name: &String) -> Result<f32, SyntaxError> {
 fn run(node: Node) -> Result<f32, SyntaxError> {
     match node {
         Node::Number(float) => Ok(float),
+        #[rustfmt::skip]
         Node::BinaryOp { left, op, right } => match op {
-            Operator::Add => Ok(run(*left)? + run(*right)?),
+            Operator::Add      => Ok(run(*left)? + run(*right)?),
             Operator::Subtract => Ok(run(*left)? - run(*right)?),
             Operator::Multiply => Ok(run(*left)? * run(*right)?),
-            Operator::Divide => Ok(run(*left)? / run(*right)?),
-            Operator::Modulo => Ok(run(*left)? % run(*right)?),
+            Operator::Divide   => Ok(run(*left)? / run(*right)?),
+            Operator::Modulo   => Ok(run(*left)? % run(*right)?),
             Operator::Exponent => Ok(run(*left)?.powf(run(*right)?)),
         },
     }
