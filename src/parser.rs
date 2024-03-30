@@ -153,15 +153,15 @@ impl<'a> Parser<'a, std::slice::Iter<'a, Token>> {
     // Will return either a number or the result of an expression within any
     // brackets it landed on
     fn parse_factor(&mut self) -> Result<Node, SyntaxError> {
-        // This function is the only function allowed to consume everything it finds
+        // This function is the only function allowed to consume every token
         match self.token_iter.next() {
             // If it's a number, return the number
             Some(Token::Number(value)) => Ok(Node::Number(*value)),
             Some(Token::LeftParen) => {
                 // If we got an opening bracket, parse the expression inside
                 let node = self.parse_expression()?;
-                // Now after parsing the inner expression, we should get a closing
-                // bracket
+                // Now after parsing the inner expression, we should get a
+                // closing bracket
                 match self.token_iter.next() {
                     // This will consume the closing bracket and return node
                     Some(Token::RightParen) => Ok(node),
@@ -174,7 +174,9 @@ impl<'a> Parser<'a, std::slice::Iter<'a, Token>> {
                     )),
                 }
             }
-            Some(Token::Variable(var_name)) => Ok(Node::Number(evaluate_variable(var_name)?)),
+            Some(Token::Variable(var_name)) => {
+                Ok(Node::Number(evaluate_variable(var_name)?))
+            }
             Some(token) => Err(SyntaxError::new(format!(
                 "Expected number or opening bracket, got {:?}",
                 token

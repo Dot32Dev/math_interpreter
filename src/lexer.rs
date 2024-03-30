@@ -28,7 +28,8 @@ pub fn lexer(input: &str) -> Result<Vec<Token>, SyntaxError> {
             '0'..='9' | '.' => {
                 let n = once(ch)
                     .chain(from_fn(|| {
-                        iter.by_ref().next_if(|s| s.is_ascii_digit() | (s == &'.'))
+                        iter.by_ref()
+                            .next_if(|s| s.is_ascii_digit() | (s == &'.'))
                     }))
                     .collect::<String>()
                     .parse::<f32>()
@@ -54,7 +55,12 @@ pub fn lexer(input: &str) -> Result<Vec<Token>, SyntaxError> {
             '^' => tokens.push(Token::Exponent),
             '(' => tokens.push(Token::LeftParen),
             ')' => tokens.push(Token::RightParen),
-            _ => return Err(SyntaxError::new(format!("Unrecognised character {}", ch))),
+            _ => {
+                return Err(SyntaxError::new(format!(
+                    "Unrecognised character {}",
+                    ch
+                )))
+            }
         }
     }
 
