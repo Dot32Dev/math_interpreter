@@ -1,6 +1,11 @@
 use std::io;
-use std::iter::from_fn;
-use std::iter::once;
+
+mod error;
+use error::SyntaxError;
+
+mod lexer;
+use lexer::lexer;
+use lexer::Token;
 
 #[derive(Debug)]
 enum Node {
@@ -22,20 +27,20 @@ enum Operator {
     Exponent,
 }
 
-#[derive(Debug)]
-enum Token {
-    Number(f32),
-    Variable(String),
-    Add,
-    Subtract,
-    Multiply,
-    Divide,
-    Modulo,
-    Exponent,
-    LeftParen,
-    RightParen,
-    EOF,
-}
+// #[derive(Debug)]
+// enum Token {
+//     Number(f32),
+//     Variable(String),
+//     Add,
+//     Subtract,
+//     Multiply,
+//     Divide,
+//     Modulo,
+//     Exponent,
+//     LeftParen,
+//     RightParen,
+//     EOF,
+// }
 
 impl Token {
     fn to_operator(&self) -> Result<Operator, SyntaxError> {
@@ -54,16 +59,16 @@ impl Token {
     }
 }
 
-#[derive(Debug)]
-struct SyntaxError {
-    message: String,
-}
+// #[derive(Debug)]
+// struct SyntaxError {
+//     message: String,
+// }
 
-impl SyntaxError {
-    fn new(message: String) -> Self {
-        SyntaxError { message }
-    }
-}
+// impl SyntaxError {
+//     fn new(message: String) -> Self {
+//         SyntaxError { message }
+//     }
+// }
 
 fn main() {
     println!("Enter something to calculate:");
@@ -91,50 +96,50 @@ fn sandbox(input: &str) -> Result<f32, SyntaxError> {
     Ok(answer)
 }
 
-fn lexer(input: &str) -> Result<Vec<Token>, SyntaxError> {
-    let mut tokens: Vec<Token> = Vec::new();
-    let mut iter = input.chars().peekable();
+// fn lexer(input: &str) -> Result<Vec<Token>, SyntaxError> {
+//     let mut tokens: Vec<Token> = Vec::new();
+//     let mut iter = input.chars().peekable();
 
-    while let Some(ch) = iter.next() {
-        match ch {
-            ch if ch.is_whitespace() => continue,
-            // Matching numbers
-            '0'..='9' | '.' => {
-                let n = once(ch)
-                    .chain(from_fn(|| {
-                        iter.by_ref().next_if(|s| s.is_ascii_digit() | (s == &'.'))
-                    }))
-                    .collect::<String>()
-                    .parse::<f32>()
-                    .unwrap();
+//     while let Some(ch) = iter.next() {
+//         match ch {
+//             ch if ch.is_whitespace() => continue,
+//             // Matching numbers
+//             '0'..='9' | '.' => {
+//                 let n = once(ch)
+//                     .chain(from_fn(|| {
+//                         iter.by_ref().next_if(|s| s.is_ascii_digit() | (s == &'.'))
+//                     }))
+//                     .collect::<String>()
+//                     .parse::<f32>()
+//                     .unwrap();
 
-                tokens.push(Token::Number(n));
-            }
-            // Matching variables
-            'a'..='z' | 'A'..='Z' => {
-                let string_of_letters = once(ch)
-                    .chain(from_fn(|| {
-                        iter.by_ref().next_if(|c| c.is_ascii_alphabetic())
-                    }))
-                    .collect::<String>();
+//                 tokens.push(Token::Number(n));
+//             }
+//             // Matching variables
+//             'a'..='z' | 'A'..='Z' => {
+//                 let string_of_letters = once(ch)
+//                     .chain(from_fn(|| {
+//                         iter.by_ref().next_if(|c| c.is_ascii_alphabetic())
+//                     }))
+//                     .collect::<String>();
 
-                tokens.push(Token::Variable(string_of_letters));
-            }
-            '+' => tokens.push(Token::Add),
-            '-' => tokens.push(Token::Subtract),
-            '*' => tokens.push(Token::Multiply),
-            '/' => tokens.push(Token::Divide),
-            '%' => tokens.push(Token::Modulo),
-            '^' => tokens.push(Token::Exponent),
-            '(' => tokens.push(Token::LeftParen),
-            ')' => tokens.push(Token::RightParen),
-            _ => return Err(SyntaxError::new(format!("Unrecognised character {}", ch))),
-        }
-    }
+//                 tokens.push(Token::Variable(string_of_letters));
+//             }
+//             '+' => tokens.push(Token::Add),
+//             '-' => tokens.push(Token::Subtract),
+//             '*' => tokens.push(Token::Multiply),
+//             '/' => tokens.push(Token::Divide),
+//             '%' => tokens.push(Token::Modulo),
+//             '^' => tokens.push(Token::Exponent),
+//             '(' => tokens.push(Token::LeftParen),
+//             ')' => tokens.push(Token::RightParen),
+//             _ => return Err(SyntaxError::new(format!("Unrecognised character {}", ch))),
+//         }
+//     }
 
-    tokens.push(Token::EOF);
-    Ok(tokens)
-}
+//     tokens.push(Token::EOF);
+//     Ok(tokens)
+// }
 
 // A recursive decent parser
 fn parse(input: &[Token]) -> Result<Node, SyntaxError> {
