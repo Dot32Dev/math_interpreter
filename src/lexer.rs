@@ -14,6 +14,10 @@ pub enum Token {
     Exponent,
     LeftParen,
     RightParen,
+    Return,
+    Semicolon,
+    Var,
+    Equals,
     EOF,
 }
 
@@ -45,7 +49,14 @@ pub fn lexer(input: &str) -> Result<Vec<Token>, SyntaxError> {
                     }))
                     .collect::<String>();
 
-                tokens.push(Token::Variable(string_of_letters));
+                // Match for keywords
+                match &string_of_letters[..] {
+                    "return" => tokens.push(Token::Return),
+                    "var" => tokens.push(Token::Var),
+                    _ => {
+                        tokens.push(Token::Variable(string_of_letters));
+                    }
+                }
             }
             '+' => tokens.push(Token::Add),
             '-' => tokens.push(Token::Subtract),
@@ -55,6 +66,8 @@ pub fn lexer(input: &str) -> Result<Vec<Token>, SyntaxError> {
             '^' => tokens.push(Token::Exponent),
             '(' => tokens.push(Token::LeftParen),
             ')' => tokens.push(Token::RightParen),
+            ';' => tokens.push(Token::Semicolon),
+            '=' => tokens.push(Token::Equals),
             _ => {
                 return Err(SyntaxError::new(format!(
                     "Unrecognised character {}",

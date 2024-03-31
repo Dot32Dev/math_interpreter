@@ -1,5 +1,6 @@
 use crate::error::SyntaxError;
 use crate::Token;
+use std::collections::HashMap;
 
 #[derive(Debug)]
 pub enum Node {
@@ -44,15 +45,18 @@ where
 {
     token_iter: std::iter::Peekable<I>,
     depth: u32,
+    variables: HashMap<&'a str, f32>,
 }
 
 impl<'a> Parser<'a, std::slice::Iter<'a, Token>> {
     pub fn new(input: &'a [Token]) -> Self {
         let iter = input.iter().peekable();
+        let mut variables = HashMap::new();
+        variables.insert("pi", std::f32::consts::PI);
         return Parser {
             token_iter: iter,
-            // node: ,
             depth: 0,
+            variables,
         };
     }
 
@@ -198,8 +202,21 @@ impl<'a> Parser<'a, std::slice::Iter<'a, Token>> {
                     )),
                 }
             }
+            Some(Token::Add) => self.parse_factor(),
+            Some(Token::Subtract) => {
+                Ok(Node::Number(-self.parse_factor()?.run()?))
+            }
             Some(Token::Variable(var_name)) => {
-                Ok(Node::Number(evaluate_variable(var_name)?))
+                // Ok(Node::Number(evaluate_variable(var_name)?))
+                match self.variables.contains_key(&var_name.clone()[..]) {
+                    true => {
+                        Ok(Node::Number(self.variables[&var_name.clone()[..]]))
+                    }
+                    false => Err(SyntaxError::new(format!(
+                        "Unidentified variable {:?}",
+                        var_name
+                    ))),
+                }
             }
             Some(token) => Err(SyntaxError::new(format!(
                 "Expected number or opening bracket, got {:?}",
@@ -209,16 +226,6 @@ impl<'a> Parser<'a, std::slice::Iter<'a, Token>> {
                 "Expected number or opening bracket, got nothing".to_string(),
             )),
         }
-    }
-}
-
-fn evaluate_variable(var_name: &String) -> Result<f32, SyntaxError> {
-    match &var_name[..] {
-        "pi" => Ok(std::f32::consts::PI),
-        string => Err(SyntaxError::new(format!(
-            "Unidentified variable {:?}",
-            string
-        ))),
     }
 }
 
